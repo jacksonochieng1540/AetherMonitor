@@ -150,3 +150,4 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 3600.0,  # every hour
     },
 }
+
