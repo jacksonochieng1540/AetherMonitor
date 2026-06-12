@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AetherMonitor | AI Infrastructure Dashboard</title>
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- ChartJS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #060913;
+            --bg-glass: rgba(13, 20, 38, 0.65);
+            --bg-glass-hover: rgba(20, 30, 58, 0.8);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-glass-active: rgba(99, 102, 241, 0.4);
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            
+            --accent-primary: #6366f1; /* Indigo */
+            --accent-primary-glow: rgba(99, 102, 241, 0.15);
+            
+            --color-success: #10b981; /* Emerald */
+            --color-warning: #f59e0b; /* Amber */
+            --color-danger: #f43f5e;  /* Rose */
+            
+            --font-family: 'Plus Jakarta Sans', sans-serif;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Glowing background meshes */
+        .glow-mesh {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(140px);
+            z-index: -1;
+            opacity: 0.15;
+            pointer-events: none;
+        }
+        .glow-1 {
+            background: radial-gradient(circle, var(--accent-primary) 0%, transparent 70%);
+            top: -10%;
+            left: -10%;
+        }
+        .glow-2 {
+            background: radial-gradient(circle, var(--color-danger) 0%, transparent 70%);
+            bottom: -10%;
+            right: -10%;
+        }
+        .glow-3 {
+            background: radial-gradient(circle, var(--color-success) 0%, transparent 70%);
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            opacity: 0.08;
+        }
+
+        /* Layout Grid */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2.5rem;
+            border-bottom: 1px solid var(--border-glass);
+            background: rgba(6, 9, 19, 0.4);
+            backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            color: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 0 20px var(--accent-primary-glow);
+        }
+
+        .logo-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 30%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--color-success);
+            box-shadow: 0 0 10px var(--color-success);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.warning {
+            background-color: var(--color-warning);
+            box-shadow: 0 0 10px var(--color-warning);
+        }
+
+        .status-dot.critical {
+            background-color: var(--color-danger);
+            box-shadow: 0 0 10px var(--color-danger);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.5; }
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 320px 1fr 340px;
+            gap: 1.5rem;
+            padding: 1.5rem 2rem;
+            flex-grow: 1;
+            height: calc(100vh - 80px);
+            overflow: hidden;
+        }
+
+        /* Glassmorphism Card styling */
+        .glass-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: var(--transition-smooth);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-glass);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Host List Panel */
+        .panel-hosts {
+            overflow: hidden;
+        }
+
+        .hosts-list {
+            padding: 1rem;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .host-item {
+            padding: 1rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glass);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .host-item:hover {
+            background: var(--bg-glass-hover);
+            transform: translateY(-2px);
+        }
+
+        .host-item.active {
+            background: rgba(99, 102, 241, 0.08);
+            border-color: var(--border-glass-active);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.1);
+        }
+
+        .host-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .host-name {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .host-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .host-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.75rem;
+            text-transform: capitalize;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+
+        .host-status-badge.online {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--color-success);
+        }
+        .host-status-badge.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--color-warning);
+        }
+        .host-status-badge.critical {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--color-danger);
+            animation: pulse-border 1.5s infinite;
+        }
+        .host-status-badge.offline {
+            background: rgba(100, 116, 139, 0.1);
+            color: var(--text-muted);
+        }
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(244, 63, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+        }
+
+        /* Center Content: Overview & Charts */
+        .panel-charts {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            background: transparent;
+            border: none;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .metrics-grid-top {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .stats-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats-data {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .stats-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .stats-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .stats-icon {
+            padding: 0.75rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glass);
+            color: var(--accent-primary);
+        }
+
+        .stats-icon.warning { color: var(--color-warning); }
+        .stats-icon.danger { color: var(--color-danger); }
+        .stats-icon.success { color: var(--color-success); }
+
+        .chart-container-card {
+            padding: 1.5rem;
+            flex-grow: 1;
+            min-height: 350px;
+        }
+
+        .chart-box {
+            position: relative;
+            width: 100%;
+            height: calc(100% - 40px);
+        }
+
+        /* Right Panel: AI Alerts & Logs */
+        .panel-alerts {
+            overflow: hidden;
+        }
+
+        .alerts-list {
+            padding: 1rem;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .alert-item {
+            padding: 1rem;
+            border-radius: 12px;
+            border-left: 4px solid var(--accent-primary);
+            background: rgba(255, 255, 255, 0.02);
+            border-top: 1px solid var(--border-glass);
+            border-right: 1px solid var(--border-glass);
+            border-bottom: 1px solid var(--border-glass);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .alert-item.info { border-left-color: #3b82f6; }
+        .alert-item.warning { border-left-color: var(--color-warning); }
+        .alert-item.critical { border-left-color: var(--color-danger); }
+
+        .alert-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .alert-host {
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .alert-time {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .alert-body {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .alert-action-btn {
+            align-self: flex-end;
+            font-family: var(--font-family);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            color: var(--text-primary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .alert-action-btn:hover {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: var(--color-success);
+            color: var(--color-success);
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            text-align: center;
+            height: 100%;
+            gap: 0.5rem;
+        }
+
+        .empty-state-icon {
+            opacity: 0.4;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Detail Modal / Overlay if needed */
+        .bottom-section {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        .panel-logs {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 1.25rem;
+            max-height: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logs-stream {
+            margin-top: 0.75rem;
+            flex-grow: 1;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.75rem;
+            color: #38bdf8;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .log-line {
+            display: flex;
+            gap: 0.5rem;
+            line-height: 1.4;
+        }
+
+        .log-time { color: var(--text-muted); }
+        .log-host { color: var(--accent-primary); font-weight: bold; }
+        .log-msg { color: #e2e8f0; }
+        .log-msg.anomaly { color: var(--color-danger); }
+    </style>
+</head>
+<body>
+    <div class="glow-mesh glow-1"></div>
+    <div class="glow-mesh glow-2"></div>
+    <div class="glow-mesh glow-3"></div>
+
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">
+                <i data-lucide="activity" class="w-6 h-6"></i>
+            </div>
+            <span class="logo-title">AetherMonitor</span>
+        </div>
+        <div class="system-status">
+            <div class="status-pill">
+                <div id="connection-dot" class="status-dot"></div>
+                <span id="connection-text">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hosts sidebar -->
+        <section class="glass-card panel-hosts">
+            <div class="card-header">
+                <span class="card-title">
+                    <i data-lucide="server"></i> Connected Hosts
+                </span>
+                <span id="hosts-count" style="font-size: 0.8rem; color: var(--text-muted);">0 active</span>
+            </div>
+            <div id="hosts-container" class="hosts-list">
+                <div class="empty-state">
+                    <i data-lucide="compass" class="empty-state-icon" style="width: 36px; height: 36px;"></i>
+                    <p style="font-weight: 500;">No hosts found</p>
+                    <p style="font-size: 0.75rem;">Run the collector agent to register hosts.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main dashboard metric details -->
+        <section class="panel-charts">
+            <!-- Summary stats -->
+            <div class="metrics-grid-top">
+                <div class="stats-card">
+                    <div class="stats-data">
+                        <span class="stats-label">Active CPU Load</span>
+                        <span id="stat-cpu" class="stats-value">0%</span>
+                    </div>
+                    <div class="stats-icon"><i data-lucide="cpu"></i></div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-data">
+                        <span class="stats-label">Memory Usage</span>
+                        <span id="stat-ram" class="stats-value">0%</span>
+                    </div>
+                    <div class="stats-icon"><i data-lucide="database"></i></div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-data">
+                        <span class="stats-label">Anomaly Status</span>
+                        <span id="stat-anomaly" class="stats-value text-success">Healthy</span>
+                    </div>
+                    <div id="stat-anomaly-icon" class="stats-icon success"><i data-lucide="shield-check"></i></div>
+                </div>
+            </div>
+
+            <!-- Charts card -->
+            <div class="glass-card chart-container-card">
+                <div class="card-header" style="padding: 0 0 1rem 0; margin-bottom: 1rem;">
+                    <span class="card-title">
+                        <i data-lucide="trending-up"></i> Real-time Telemetry (<span id="current-host-title">Select a host</span>)
+                    </span>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1rem;">
+                        <span style="display:flex; align-items:center; gap:0.25rem;"><span style="width:10px; height:10px; background:#6366f1; border-radius:50%;"></span> CPU</span>
+                        <span style="display:flex; align-items:center; gap:0.25rem;"><span style="width:10px; height:10px; background:#10b981; border-radius:50%;"></span> RAM</span>
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <canvas id="telemetryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Logs view -->
+            <div class="panel-logs">
+                <span class="card-title" style="font-size: 0.9rem;">
+                    <i data-lucide="terminal" style="width: 16px; height: 16px;"></i> Live Diagnostic Logs
+                </span>
+                <div id="logs-container" class="logs-stream">
+                    <div class="log-line">
+                        <span class="log-time">[System]</span>
+                        <span class="log-msg">Logs stream initialized. Awaiting metrics connection...</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right sidebar: Anomaly Alerts -->
+        <section class="glass-card panel-alerts">
+            <div class="card-header">
+                <span class="card-title">
+                    <i data-lucide="bell" style="color: var(--color-warning);"></i> AI Alert Feed
+                </span>
+                <span id="alerts-count" style="font-size: 0.75rem; background: var(--color-danger); color: #fff; padding: 0.1rem 0.4rem; border-radius: 9999px; display: none;">0</span>
+            </div>
+            <div id="alerts-container" class="alerts-list">
+                <div class="empty-state">
+                    <i data-lucide="shield" class="empty-state-icon" style="width: 36px; height: 36px; color: var(--color-success);"></i>
+                    <p style="font-weight: 500; color: var(--color-success)">No issues detected</p>
+                    <p style="font-size: 0.75rem;">Infrastructure is operating nominally.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // Application State
+        let hosts = {};
+        let selectedHost = null;
+        let chart = null;
+        let socket = null;
+        const maxChartPoints = 30;
+
+        // DOM elements
+        const hostsContainer = document.getElementById('hosts-container');
+        const hostsCount = document.getElementById('hosts-count');
+        const statCpu = document.getElementById('stat-cpu');
+        const statRam = document.getElementById('stat-ram');
+        const statAnomaly = document.getElementById('stat-anomaly');
+        const statAnomalyIcon = document.getElementById('stat-anomaly-icon');
+        const currentHostTitle = document.getElementById('current-host-title');
+        const alertsContainer = document.getElementById('alerts-container');
+        const alertsCount = document.getElementById('alerts-count');
+        const logsContainer = document.getElementById('logs-container');
+        const connectionDot = document.getElementById('connection-dot');
+        const connectionText = document.getElementById('connection-text');
+
+        // Initialize empty chart
+        function initChart() {
+            const ctx = document.getElementById('telemetryChart').getContext('2d');
+            
+            // Gradients
+            const cpuGrad = ctx.createLinearGradient(0, 0, 0, 300);
+            cpuGrad.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
+            cpuGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+            const ramGrad = ctx.createLinearGradient(0, 0, 0, 300);
+            ramGrad.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+            ramGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'CPU Usage (%)',
+                            borderColor: '#6366f1',
+                            backgroundColor: cpuGrad,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            data: []
+                        },
+                        {
+                            label: 'RAM Usage (%)',
+                            borderColor: '#10b981',
+                            backgroundColor: ramGrad,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            data: []
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        },
+                        y: {
+                            min: 0,
+                            max: 100,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Fetch registered hosts on startup
+        async function fetchHosts() {
+            try {
+                const res = await fetch('/api/hosts/');
+                const data = await res.json();
+                
+                hostsContainer.innerHTML = '';
+                if (data.length === 0) {
+                    showEmptyHosts();
+                    return;
+                }
+
+                data.forEach(h => {
+                    hosts[h.hostname] = h;
+                    renderHostCard(h);
+                });
+                
+                hostsCount.textContent = `${data.length} active`;
+
+                // Select first host by default
+                if (data.length > 0 && !selectedHost) {
+                    selectHost(data[0].hostname);
+                }
+            } catch (err) {
+                console.error("Error fetching hosts:", err);
+            }
+        }
+
+        function showEmptyHosts() {
+            hostsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i data-lucide="compass" class="empty-state-icon" style="width: 36px; height: 36px;"></i>
+                    <p style="font-weight: 500;">No hosts found</p>
+                    <p style="font-size: 0.75rem;">Run the collector agent to register hosts.</p>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // Render host cards
+        function renderHostCard(host) {
+            let item = document.getElementById(`host-${host.hostname}`);
+            if (!item) {
+                item = document.createElement('div');
+                item.id = `host-${host.hostname}`;
+                item.className = 'host-item';
+                item.onclick = () => selectHost(host.hostname);
+                hostsContainer.appendChild(item);
+            }
+
+            if (selectedHost === host.hostname) {
+                item.className = 'host-item active';
+            } else {
+                item.className = 'host-item';
+            }
+
+            const lastSeenDate = new Date(host.last_seen);
+            const relativeTimeStr = lastSeenDate.toLocaleTimeString();
+
+            item.innerHTML = `
+                <div class="host-info">
+                    <span class="host-name">${host.hostname}</span>
+                    <span class="host-meta">${host.ip_address || 'Unknown IP'} • ${host.os_info || 'Linux'}</span>
+                </div>
+                <span class="host-status-badge ${host.status}">
+                    <span style="width:6px; height:6px; background:currentColor; border-radius:50%;"></span>
+                    ${host.status}
+                </span>
+            `;
+        }
+
+        // Select host and load chart history
+        async function selectHost(hostname) {
+            selectedHost = hostname;
+            currentHostTitle.textContent = hostname;
+            
+            // Highlight card
+            document.querySelectorAll('.host-item').forEach(el => {
+                if (el.id === `host-${hostname}`) {
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+
+            // Fetch metrics history
+            try {
+                const res = await fetch(`/api/metrics/history/${hostname}/`);
+                const data = await res.json();
+
+                chart.data.labels = [];
+                chart.data.datasets[0].data = [];
+                chart.data.datasets[1].data = [];
+
+                data.forEach(metric => {
+                    const time = new Date(metric.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    chart.data.labels.push(time);
+                    chart.data.datasets[0].data.push(metric.cpu_percent);
+                    chart.data.datasets[1].data.push(metric.memory_percent);
+                });
+
+                chart.update();
+
+                // Update summary stats based on last point
+                if (data.length > 0) {
+                    const last = data[data.length - 1];
+                    updateCurrentStats(last);
+                }
+            } catch (err) {
+                console.error("Error loading history:", err);
+            }
+        }
+
+        function updateCurrentStats(metric) {
+            statCpu.textContent = `${metric.cpu_percent.toFixed(1)}%`;
+            statRam.textContent = `${metric.memory_percent.toFixed(1)}%`;
+            
+            if (metric.is_anomaly) {
+                statAnomaly.textContent = 'Anomaly Detected';
+                statAnomaly.className = 'stats-value text-danger';
+                statAnomalyIcon.className = 'stats-icon danger';
+                statAnomalyIcon.innerHTML = '<i data-lucide="shield-alert" style="color:var(--color-danger)"></i>';
+            } else {
+                statAnomaly.textContent = 'Healthy';
+                statAnomaly.className = 'stats-value text-success';
+                statAnomalyIcon.className = 'stats-icon success';
+                statAnomalyIcon.innerHTML = '<i data-lucide="shield-check" style="color:var(--color-success)"></i>';
+            }
+            lucide.createIcons();
+        }
+
+        // Fetch unresolved alerts
+        async function fetchAlerts() {
+            try {
+                const res = await fetch('/api/alerts/');
+                const data = await res.json();
+                
+                // Filter unresolved
+                const unresolved = data.filter(a => !a.resolved);
+                
+                alertsContainer.innerHTML = '';
+                if (unresolved.length === 0) {
+                    showEmptyAlerts();
+                    return;
+                }
+
+                unresolved.forEach(a => {
+                    renderAlertCard(a);
+                });
+                updateAlertsBadge(unresolved.length);
+            } catch (err) {
+                console.error("Error fetching alerts:", err);
+            }
+        }
+
+        function showEmptyAlerts() {
+            alertsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i data-lucide="shield" class="empty-state-icon" style="width: 36px; height: 36px; color: var(--color-success);"></i>
+                    <p style="font-weight: 500; color: var(--color-success)">No issues detected</p>
+                    <p style="font-size: 0.75rem;">Infrastructure is operating nominally.</p>
+                </div>
+            `;
+            updateAlertsBadge(0);
+            lucide.createIcons();
+        }
+
+        function updateAlertsBadge(count) {
+            if (count > 0) {
+                alertsCount.textContent = count;
+                alertsCount.style.display = 'inline';
+            } else {
+                alertsCount.style.display = 'none';
+            }
+        }
+
+        function renderAlertCard(alert) {
+            // Check if card exists
+            let card = document.getElementById(`alert-${alert.id}`);
+            if (card) return;
+
+            card = document.createElement('div');
+            card.id = `alert-${alert.id}`;
+            card.className = `alert-item ${alert.severity}`;
+
+            const timeStr = new Date(alert.timestamp).toLocaleTimeString();
+
+            card.innerHTML = `
+                <div class="alert-header-row">
+                    <span class="alert-host">${alert.hostname}</span>
+                    <span class="alert-time">${timeStr}</span>
+                </div>
+                <div class="alert-body">${alert.message}</div>
+                <button class="alert-action-btn" onclick="resolveAlert(${alert.id})">Mark Resolved</button>
+            `;
+
+            // Prepend new alerts
+            if (alertsContainer.querySelector('.empty-state')) {
+                alertsContainer.innerHTML = '';
+            }
+            alertsContainer.insertBefore(card, alertsContainer.firstChild);
+        }
+
+        async function resolveAlert(id) {
+            try {
+                const res = await fetch(`/api/alerts/${id}/resolve/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (res.ok) {
+                    const card = document.getElementById(`alert-${id}`);
+                    if (card) {
+                        card.style.transform = 'translateX(100px)';
+                        card.style.opacity = '0';
+                        setTimeout(() => {
+                            card.remove();
+                            // If no cards left, show empty state
+                            if (alertsContainer.children.length === 0) {
+                                showEmptyAlerts();
+                            } else {
+                                updateAlertsBadge(alertsContainer.querySelectorAll('.alert-item').length);
+                            }
+                        }, 300);
+                    }
+                    addLogLine('System', `Alert ID ${id} resolved by administrator.`);
+                }
+            } catch (err) {
+                console.error("Error resolving alert:", err);
+            }
+        }
+
+        // Append log line helper
+        function addLogLine(host, message, isAnomaly = false) {
+            const time = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-host">${host}:</span>
+                <span class="log-msg ${isAnomaly ? 'anomaly' : ''}">${message}</span>
+            `;
+            logsContainer.appendChild(line);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+
+            // Keep log buffer size capped
+            while (logsContainer.children.length > 50) {
+                logsContainer.removeChild(logsContainer.firstChild);
+            }
+        }
+
+        // WebSocket Setup
+        function connectWebSocket() {
+            const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+            const wsUrl = `${wsScheme}://${window.location.host}/ws/metrics/all/`;
+            
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = function() {
+                connectionDot.className = 'status-dot';
+                connectionText.textContent = 'Live System Connected';
+                addLogLine('Gateway', 'WebSocket connection established.');
+            };
+
+            socket.onmessage = function(e) {
+                const payload = json = JSON.parse(e.data);
+                
+                if (payload.type === 'metric_update') {
+                    const m = payload.data;
+                    
+                    // Register dynamic host discovery if not registered
+                    if (!hosts[m.hostname]) {
+                        fetchHosts();
+                        addLogLine('System', `New metric source discovered: ${m.hostname}`);
+                    }
+
+                    // Update local host object values
+                    if (hosts[m.hostname]) {
+                        hosts[m.hostname].status = m.host_status;
+                        hosts[m.hostname].last_seen = m.timestamp;
+                        renderHostCard(hosts[m.hostname]);
+                    }
+
+                    // Update log stream
+                    const isAnom = m.is_anomaly;
+                    const cleanMsg = `Inbound CPU:${m.cpu_percent.toFixed(1)}% | RAM:${m.memory_percent.toFixed(1)}% | Anomaly Score:${m.anomaly_score.toFixed(3)}`;
+                    addLogLine(m.hostname, cleanMsg, isAnom);
+
+                    // Update selected host details if metric belongs to it
+                    if (selectedHost === m.hostname) {
+                        updateCurrentStats(m);
+
+                        // Add point to chart
+                        const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        chart.data.labels.push(time);
+                        chart.data.datasets[0].data.push(m.cpu_percent);
+                        chart.data.datasets[1].data.push(m.memory_percent);
+
+                        // Cap buffer
+                        if (chart.data.labels.length > maxChartPoints) {
+                            chart.data.labels.shift();
+                            chart.data.datasets[0].data.shift();
+                            chart.data.datasets[1].data.shift();
+                        }
+                        chart.update();
+                    }
+                } else if (payload.type === 'alert_update') {
+                    const alert = payload.data;
+                    renderAlertCard(alert);
+                    
+                    // Recalculate badge
+                    const alertCards = alertsContainer.querySelectorAll('.alert-item');
+                    updateAlertsBadge(alertCards.length);
+
+                    addLogLine('ML-ALERT', `[CRITICAL ANOMALY DETECTED] ${alert.message}`, true);
+                }
+            };
+
+            socket.onclose = function(e) {
+                connectionDot.className = 'status-dot critical';
+                connectionText.textContent = 'Connection Lost';
+                addLogLine('Gateway', 'WebSocket connection disconnected. Reconnecting in 5s...', true);
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            socket.onerror = function(err) {
+                console.error('WebSocket Error: ', err);
+                socket.close();
+            };
+        }
+
+        // Bootstrapping
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            fetchHosts();
+            fetchAlerts();
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>
