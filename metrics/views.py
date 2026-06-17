@@ -19,7 +19,7 @@ class MetricViewSet(viewsets.ViewSet):
         ip_address = request.data.get('ip_address', request.META.get('REMOTE_ADDR'))
         os_info = request.data.get('os_info', 'Linux')
         
-        # Get or create/update host details
+    
         host, _ = Host.objects.update_or_create(
             hostname=hostname,
             defaults={
@@ -33,7 +33,6 @@ class MetricViewSet(viewsets.ViewSet):
         serializer = MetricSerializer(data=request.data)
         if serializer.is_valid():
             metric = serializer.save(host=host)
-            # Trigger Celery task asynchronously for ML checking and UI broadcast
             process_incoming_metric.delay(metric.id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -41,7 +40,6 @@ class MetricViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='history/(?P<hostname>[^/]+)')
     def history(self, request, hostname=None):
         metrics = Metric.objects.filter(host__hostname=hostname).order_by('-timestamp')[:50]
-        # Return in oldest-first order for graphing
         serializer = MetricSerializer(reversed(list(metrics)), many=True)
         return Response(serializer.data)
 
