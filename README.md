@@ -2,7 +2,7 @@
 
 An AI-Powered Infrastructure Monitoring Dashboard using Django, Celery, Channels, Redis, PostgreSQL, and scikit-learn.
 
-## Features
+## Application's Features 
 
 - **Dynamic Agent Registration**: Ingests CPU, memory, disk, and network stats from multiple container or host agents.
 - **Asynchronous Ingestion Pipeline**: API requests return immediately while Celery workers handle database operations, ML scoring, and alert generation.
