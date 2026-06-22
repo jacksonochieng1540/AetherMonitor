@@ -30,7 +30,7 @@ def broadcast_to_websockets(metric, alert=None):
         'host_status': metric.host.status,
     }
 
-    # Broadcast to global channels group
+   
     async_to_sync(channel_layer.group_send)(
         "metrics_all",
         {
@@ -39,7 +39,7 @@ def broadcast_to_websockets(metric, alert=None):
         }
     )
 
-    # Broadcast to host-specific channels group
+  
     async_to_sync(channel_layer.group_send)(
         f"metrics_host_{metric.host.hostname}",
         {
@@ -57,7 +57,7 @@ def broadcast_to_websockets(metric, alert=None):
             'timestamp': alert.timestamp.isoformat(),
             'resolved': alert.resolved
         }
-        # Broadcast alert to global group
+
         async_to_sync(channel_layer.group_send)(
             "metrics_all",
             {
@@ -83,21 +83,19 @@ def process_incoming_metric(metric_id):
 
     host = metric.host
 
-    # Run ML Anomaly Detection
+  
     detector = AnomalyDetector(host.hostname)
     is_anomaly, score = detector.predict(metric)
 
-    # Update metric
+    
     metric.is_anomaly = is_anomaly
     metric.anomaly_score = score
     metric.save()
 
-    # Determine Host Status
     new_status = 'online'
     alert = None
 
     if is_anomaly:
-        # Determine Severity based on threshold parameters or score
         severity = 'warning'
         if metric.cpu_percent > 95.0 or metric.memory_percent > 95.0:
             severity = 'critical'
@@ -105,7 +103,7 @@ def process_incoming_metric(metric_id):
         else:
             new_status = 'warning'
 
-        # Check for alert spam control: don't create similar alert if one was created in the last 1 minute
+       
         one_minute_ago = timezone.now() - timezone.timedelta(minutes=1)
         recent_alert_exists = Alert.objects.filter(
             host=host,
@@ -124,7 +122,6 @@ def process_incoming_metric(metric_id):
                 severity=severity,
                 message=message
             )
-            # Log simulated alert output (Slack, Email, Webhook would connect here)
             logger.warning(f"[ALERT TRIGGERED] Host {host.hostname} - {severity.upper()}: {message}")
 
     # Save host state changes
